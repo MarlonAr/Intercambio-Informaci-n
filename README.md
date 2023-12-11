@@ -2,4 +2,4 @@
 
 Integrantes: 
 - Argoti Marlon
-- Luna Frixon
+- Intercambio infor. con Luna Frixon

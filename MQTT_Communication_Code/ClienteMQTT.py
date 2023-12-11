@@ -5,13 +5,14 @@ import os
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from datetime import datetime
 
 # Configuración del broker MQTT
 broker_address = "broker.hivemq.com"
 port = 1883
 topic = "metadatos"
 #Topico al que se enviará la información
-topic_diferencia_metadatos = "topico_a_enviar"
+topic_diferencia_metadatos = "mateo"
 
 # Configuración del servidor SMTP para enviar correos
 smtp_server = "smtp.gmail.com"
@@ -27,7 +28,9 @@ def on_connect(client, userdata, flags, rc):
 
 # Función que se ejecuta cuando se recibe un mensaje
 def on_message(client, userdata, msg):
-    print(f"\nMensaje recibido:\n {msg.payload.decode()}")
+    fecha_actual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    print("\nMensaje recibido en {}:\n {}".format(fecha_actual, mensaje))
+    #print(f"\nMensaje recibido en {fecha_actual}:\n {msg.payload.decode()}")
 
 # Función para obtener el rendimiento del CPU
 def obtener_rendimiento_cpu():
@@ -141,14 +144,17 @@ try:
         # Envia el mensaje al broker MQTT
         client.publish(topic, mensaje)
 
-        # Limpia el búfer de la consola
-        os.system('cls' if os.name == 'nt' else 'clear')
+         # Obtiene la fecha y hora actual
+        fecha_actual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-        # Imprime el mensaje para el usuario
-        print("Mensaje JSON enviado:\n", mensaje_json)
+        # Limpia el búfer de la consola
+        os.system("cls" if os.name == "nt" else "clear")
+
+        # Imprime la fecha y el mensaje para el usuario
+        print("Mensaje enviado en {}:\n {}".format(fecha_actual, mensaje))
 
         # Verifica y envía una alerta si es necesario
-        verificar_y_enviar_alerta(mensaje_json)
+        verificar_y_enviar_alerta(mensaje)
 
         # Espera a que el usuario presione ENTER para enviar el siguiente mensaje
         input("\nPresiona ENTER para enviar el siguiente mensaje...\n")

@@ -1,4 +1,4 @@
-# Intercambio-Informaci-n
+# Cliente-MQTT
 
 Integrantes: 
 - Argoti Marlon

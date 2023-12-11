@@ -2,6 +2,7 @@ import paho.mqtt.client as mqtt
 import psutil
 import platform
 import os
+import json
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -130,25 +131,28 @@ try:
         rendimiento_red = obtener_rendimiento_red()
         sistema_operativo = obtener_sistema_operativo()
 
-        # Formatea los datos como un mensaje
-        mensaje = (
-            f"Rendimiento del CPU (%): {rendimiento_cpu}\n"
-            f"Rendimiento de la Memoria (%): {rendimiento_memoria}\n"
-            f"Rendimiento de la Red (GB): {rendimiento_red}\n"
-            f"Sistema Operativo: {sistema_operativo}"
-        )
+        # Formatea los datos como un diccionario
+        datos_rendimiento = {
+            "rendimiento_cpu": rendimiento_cpu,
+            "rendimiento_memoria": rendimiento_memoria,
+            "rendimiento_red": rendimiento_red,
+            "sistema_operativo": sistema_operativo
+        }
 
-        # Envia el mensaje al broker MQTT
-        client.publish(topic, mensaje)
+        # Convierte el diccionario a una cadena JSON
+        mensaje_json = json.dumps(datos_rendimiento)
+
+        # Envia el mensaje JSON al broker MQTT
+        client.publish(topic, mensaje_json)
 
         # Limpia el búfer de la consola
         os.system('cls' if os.name == 'nt' else 'clear')
 
         # Imprime el mensaje para el usuario
-        print("Mensaje enviado:\n", mensaje)
+        print("Mensaje JSON enviado:\n", mensaje_json)
 
         # Verifica y envía una alerta si es necesario
-        verificar_y_enviar_alerta(mensaje)
+        verificar_y_enviar_alerta(mensaje_json)
 
         # Espera a que el usuario presione ENTER para enviar el siguiente mensaje
         input("\nPresiona ENTER para enviar el siguiente mensaje...\n")

@@ -1,3 +1,4 @@
+
 import paho.mqtt.client as mqtt
 import psutil
 import platform
@@ -6,13 +7,21 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import datetime
+import mysql.connector
+from mysql.connector import Error
+
+# Configuración de la base de datos MySQL
+db_host = "localhost"
+db_user = "root"
+db_password = "Dubey$@2003"
+db_name = "MQTT_db"
 
 # Configuración del broker MQTT
 broker_address = "broker.hivemq.com"
 port = 1883
 topic = "metadatos"
 #Topico al que se enviará la información
-topic_diferencia_metadatos = "mateo"
+topic_diferencia_metadatos = "topico2"
 
 # Configuración del servidor SMTP para enviar correos
 smtp_server = "smtp.gmail.com"
@@ -20,6 +29,36 @@ smtp_port = 587
 smtp_username = "rendimientocpu@gmail.com"
 smtp_password = "fjjy tnve ryia yvwl"
 recipient_email = "argotimarlon04@gmail.com"
+
+# Identificador del equipo (remitente)
+remitente = "Marlon"
+
+# Función para conectar a la base de datos MySQL
+def conectar_mysql():
+    try:
+        connection = mysql.connector.connect(
+            host=db_host,
+            user=db_user,
+            password=db_password,
+            database=db_name
+        )
+        if connection.is_connected():
+            print(f"Conectado a la base de datos: {db_name}")
+            return connection
+    except Error as e:
+        print(f"Error al conectar a la base de datos: {e}")
+        return None
+
+# Función para insertar datos en la tabla 'data'
+def insertar_en_tabla_data(connection, info, percent):
+    try:
+        cursor = connection.cursor()
+        sql_query = "INSERT INTO data (info, percent) VALUES (%s, %s)"
+        cursor.execute(sql_query, (info, percent))
+        connection.commit()
+        print("Datos insertados en la tabla 'data'.")
+    except Error as e:
+        print(f"Error al insertar datos en la tabla 'data': {e}")
 
 # Función que se ejecuta cuando se conecta al broker
 def on_connect(client, userdata, flags, rc):
@@ -29,8 +68,8 @@ def on_connect(client, userdata, flags, rc):
 # Función que se ejecuta cuando se recibe un mensaje
 def on_message(client, userdata, msg):
     fecha_actual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    print("\nMensaje recibido en {}:\n {}".format(fecha_actual, mensaje))
-    #print(f"\nMensaje recibido en {fecha_actual}:\n {msg.payload.decode()}")
+    remitente_mensaje = msg.topic.split("/")[-1]  # Extrae el remitente del tópico
+    print("\nMensaje recibido en {} de {}:\n {}".format(fecha_actual, remitente_mensaje, msg.payload.decode()))
 
 # Función para obtener el rendimiento del CPU
 def obtener_rendimiento_cpu():
@@ -135,6 +174,7 @@ try:
 
         # Formatea los datos como un mensaje
         mensaje = (
+            f"PC de: {remitente}\n"
             f"Rendimiento del CPU (%): {rendimiento_cpu}\n"
             f"Rendimiento de la Memoria (%): {rendimiento_memoria}\n"
             f"Rendimiento de la Red (GB): {rendimiento_red}\n"
@@ -143,6 +183,16 @@ try:
 
         # Envia el mensaje al broker MQTT
         client.publish(topic, mensaje)
+
+         # Inserta los datos en la tabla 'data' de la base de datos MySQL
+        connection = conectar_mysql()
+        if connection:
+            insertar_en_tabla_data(connection, "PC de", remitente)
+            insertar_en_tabla_data(connection, "Rendimiento del CPU", rendimiento_cpu)
+            insertar_en_tabla_data(connection, "Rendimiento de la Memoria", rendimiento_memoria)
+            insertar_en_tabla_data(connection, "Rendimiento de la Red", rendimiento_red)
+            insertar_en_tabla_data(connection, "Sistema Operativo", sistema_operativo)
+            connection.close()
 
          # Obtiene la fecha y hora actual
         fecha_actual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")

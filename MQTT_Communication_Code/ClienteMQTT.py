@@ -45,8 +45,11 @@ def conectar_mysql():
         if connection.is_connected():
             print(f"Conectado a la base de datos: {db_name}")
             return connection
-    except Error as e:
-        print(f"Error al conectar a la base de datos: {e}")
+    except mysql.connector.Error as e:
+        print(f"\nError al conectar a la base de datos: {e}")
+        return None
+    except Exception as ex:
+        print(f"\nError inesperado: {ex}")
         return None
 
 # Función para insertar datos en la tabla 'data'
@@ -184,7 +187,7 @@ try:
         # Envia el mensaje al broker MQTT
         client.publish(topic, mensaje)
 
-         # Inserta los datos en la tabla 'data' de la base de datos MySQL
+        # Inserta los datos en la tabla 'data' de la base de datos MySQL
         connection = conectar_mysql()
         if connection:
             insertar_en_tabla_data(connection, "PC de", remitente)
@@ -193,15 +196,17 @@ try:
             insertar_en_tabla_data(connection, "Rendimiento de la Red", rendimiento_red)
             insertar_en_tabla_data(connection, "Sistema Operativo", sistema_operativo)
             connection.close()
+        else:
+            print("No se pudo establecer la conexión con la base de datos.")
 
          # Obtiene la fecha y hora actual
         fecha_actual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
         # Limpia el búfer de la consola
-        os.system("cls" if os.name == "nt" else "clear")
+        #os.system("cls" if os.name == "nt" else "clear")
 
         # Imprime la fecha y el mensaje para el usuario
-        print("Mensaje enviado en {}:\n {}".format(fecha_actual, mensaje))
+        print("\nMensaje enviado en {}:\n {}".format(fecha_actual, mensaje))
 
         # Verifica y envía una alerta si es necesario
         verificar_y_enviar_alerta(mensaje)

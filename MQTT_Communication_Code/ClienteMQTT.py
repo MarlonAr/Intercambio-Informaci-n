@@ -1,36 +1,21 @@
 import paho.mqtt.client as mqtt
 import psutil
 import platform
-import os
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
 from datetime import datetime
+import uuid
+import json
+import time
+
 
 # Configuración del broker MQTT
 broker_address = "broker.hivemq.com"
 port = 1883
-topic = "metadatos"
-#Topico al que se enviará la información
-topic_diferencia_metadatos = "mateo"
-
-# Configuración del servidor SMTP para enviar correos
-smtp_server = "smtp.gmail.com"
-smtp_port = 587
-smtp_username = "rendimientocpu@gmail.com"
-smtp_password = "fjjy tnve ryia yvwl"
-recipient_email = "argotimarlon04@gmail.com"
+topic = "grupo4"
 
 # Función que se ejecuta cuando se conecta al broker
 def on_connect(client, userdata, flags, rc):
     print(f"Conectado con código de resultado {rc}")
     client.subscribe(topic)
-
-# Función que se ejecuta cuando se recibe un mensaje
-def on_message(client, userdata, msg):
-    fecha_actual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    print("\nMensaje recibido en {}:\n {}".format(fecha_actual, mensaje))
-    #print(f"\nMensaje recibido en {fecha_actual}:\n {msg.payload.decode()}")
 
 # Función para obtener el rendimiento del CPU
 def obtener_rendimiento_cpu():
@@ -48,72 +33,8 @@ def obtener_rendimiento_red():
 def obtener_sistema_operativo():
     return platform.system()
 
-# Función para enviar un correo de alerta
-def enviar_alerta():
-    subject = "Alerta: Rendimiento del CPU superior al 40%"
-    body = "El rendimiento del CPU ha superado el 40%. Verifica el estado de la computadora."
-
-    # Configuración del mensaje
-    msg = MIMEMultipart()
-    msg['From'] = smtp_username
-    msg['To'] = recipient_email
-    msg['Subject'] = subject
-    msg.attach(MIMEText(body, 'plain'))
-
-    # Conexión al servidor SMTP y envío del correo
-    with smtplib.SMTP(smtp_server, smtp_port) as server:
-        server.starttls()
-        server.login(smtp_username, smtp_password)
-        server.sendmail(smtp_username, recipient_email, msg.as_string())
-
-    print("Correo de alerta enviado.")
-
-# Función para verificar y enviar alerta si el rendimiento del CPU es mayor al 40%
-def verificar_y_enviar_alerta(mensaje):
-    # Busca la línea que contiene el rendimiento del CPU en el mensaje
-    linea_cpu = next((linea for linea in mensaje.split('\n') if 'Rendimiento del CPU' in linea), None)
-
-    if linea_cpu:
-        try:
-            # Extrae el valor del rendimiento del CPU y lo convierte a float
-            rendimiento_cpu = float(linea_cpu.split(":")[1].strip().replace("%", ""))
-            if rendimiento_cpu > 40:
-                enviar_alerta()
-        except ValueError:
-            print("Error al convertir el rendimiento del CPU a un número.")
-
-# Función para calcular la diferencia entre dos conjuntos de metadatos y enviarla
-def calcular_diferencia_y_enviar(mensaje):
-    # Recolecta datos de rendimiento del segundo equipo
-    rendimiento_cpu_segundo_equipo = obtener_rendimiento_cpu()
-    rendimiento_memoria_segundo_equipo = obtener_rendimiento_memoria()
-    rendimiento_red_segundo_equipo = obtener_rendimiento_red()
-    sistema_operativo_segundo_equipo = obtener_sistema_operativo()
-
-    # Formatea los datos como un mensaje del segundo equipo
-    mensaje_segundo_equipo = (
-        f"Rendimiento del CPU (%): {rendimiento_cpu_segundo_equipo}\n"
-        f"Rendimiento de la Memoria (%): {rendimiento_memoria_segundo_equipo}\n"
-        f"Rendimiento de la Red (GB): {rendimiento_red_segundo_equipo}\n"
-        f"Sistema Operativo: {sistema_operativo_segundo_equipo}"
-    )
-
-    # Calcula la diferencia entre los dos conjuntos de metadatos
-    diferencia_metadatos = "Diferencia en metadatos:\n"
-    for linea_equipo1, linea_equipo2 in zip(mensaje.split('\n'), mensaje_segundo_equipo.split('\n')):
-        if ':' in linea_equipo1 and ':' in linea_equipo2:
-            clave1, valor1 = [parte.strip() for parte in linea_equipo1.split(':')]
-            clave2, valor2 = [parte.strip() for parte in linea_equipo2.split(':')]
-            if clave1 == clave2:
-                try:
-                    diferencia = float(valor1.replace('%', '')) - float(valor2.replace('%', ''))
-                    diferencia_metadatos += f"{clave1}: {diferencia}\n"
-                except ValueError:
-                    print(f"Error al calcular la diferencia para {clave1}.")
-
-    # Enviar la diferencia al tópico correspondiente
-    client.publish(topic_diferencia_metadatos, diferencia_metadatos)
-    print("Diferencia de metadatos enviada:\n", diferencia_metadatos)
+def on_message(client, userdata, msg):
+    print(f"\nMensaje recibido:\n {msg.payload.decode()}")
 
 
 # Configuración del cliente MQTT
@@ -133,31 +54,37 @@ try:
         rendimiento_red = obtener_rendimiento_red()
         sistema_operativo = obtener_sistema_operativo()
 
-        # Formatea los datos como un mensaje
-        mensaje = (
-            f"Rendimiento del CPU (%): {rendimiento_cpu}\n"
-            f"Rendimiento de la Memoria (%): {rendimiento_memoria}\n"
-            f"Rendimiento de la Red (GB): {rendimiento_red}\n"
-            f"Sistema Operativo: {sistema_operativo}"
-        )
+        # Obtén la fecha y hora actual
+        fecha_hora_actual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-        # Envia el mensaje al broker MQTT
-        client.publish(topic, mensaje)
+        # Obtén la dirección MAC
+        mac_address = ':'.join(['{:02x}'.format((uuid.getnode() >> elements) & 0xff) for elements in range(5, -1, -1)])
 
-         # Obtiene la fecha y hora actual
-        fecha_actual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        # Construye un diccionario con los datos
+        datos = {
+            "fecha_hora": fecha_hora_actual,
+            "mac_address": mac_address,
+            "rendimiento_cpu": rendimiento_cpu,
+            "rendimiento_memoria": rendimiento_memoria,
+            "rendimiento_red": rendimiento_red,
+            "sistema_operativo": sistema_operativo
+        }
 
-        # Limpia el búfer de la consola
-        os.system("cls" if os.name == "nt" else "clear")
+        # Convierte el diccionario a una cadena JSON
+        mensaje_json = json.dumps(datos, indent=2)  # Usa indent para formatear la salida JSON
 
-        # Imprime la fecha y el mensaje para el usuario
-        print("Mensaje enviado en {}:\n {}".format(fecha_actual, mensaje))
+        # Envia el mensaje JSON al broker MQTT
+        client.publish(topic, mensaje_json)
 
-        # Verifica y envía una alerta si es necesario
-        verificar_y_enviar_alerta(mensaje)
+        # Imprime cada línea del mensaje
+        print("Mensaje JSON enviado:")
+        for linea in mensaje_json.split('\n'):
+            print(linea)
 
-        # Espera a que el usuario presione ENTER para enviar el siguiente mensaje
-        input("\nPresiona ENTER para enviar el siguiente mensaje...\n")
+        # Espera 10 segundos antes de enviar el siguiente mensaje
+        time.sleep(10)
+
+
 
 except KeyboardInterrupt:
     # Desconectar al recibir una interrupción del teclado (Ctrl+C)
